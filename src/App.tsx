@@ -17,13 +17,24 @@ function App() {
   const [steeringInProgress, setSteeringInProgress] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isQueueInteracting, setIsQueueInteracting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
   const currentResponseRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const prevQueueLengthRef = useRef(0);
 
-  const scrollToBottom = useCallback(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  const isNearBottom = useCallback(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return true;
+    const threshold = 150; // pixels from bottom
+    return container.scrollHeight - container.scrollTop - container.clientHeight < threshold;
   }, []);
+
+  const scrollToBottom = useCallback(() => {
+    // Don't scroll if user is interacting with queue or is scrolled away from bottom
+    if (isQueueInteracting || !isNearBottom()) return;
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [isQueueInteracting, isNearBottom]);
 
   // Only scroll to bottom when a new queued item is added
   useEffect(() => {
@@ -362,7 +373,7 @@ function App() {
     <div className="chat-container">
       <ChatHeader />
       
-      <div className="messages-container">
+      <div className="messages-container" ref={messagesContainerRef}>
         {messages.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">💬</div>
@@ -379,6 +390,7 @@ function App() {
           onDismiss={handleDismissQueued}
           onDismissSteering={handleDismissSteering}
           onEditQueued={handleEditQueued}
+          onInteractionChange={setIsQueueInteracting}
         />
         
         <div ref={messagesEndRef} />

@@ -8,15 +8,17 @@ interface QueueSectionProps {
   onDismiss: (id: string) => void;
   onDismissSteering: (id: string) => void;
   onEditQueued: (id: string, newText: string) => void;
+  onInteractionChange?: (isInteracting: boolean) => void;
 }
 
 interface EditableQueueItemProps {
   msg: QueuedMessage;
   onEdit: (id: string, newText: string) => void;
+  onEditingChange?: (isEditing: boolean) => void;
   children?: React.ReactNode;
 }
 
-const EditableQueueItem: React.FC<EditableQueueItemProps> = ({ msg, onEdit }) => {
+const EditableQueueItem: React.FC<EditableQueueItemProps> = ({ msg, onEdit, onEditingChange }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(msg.text);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -27,6 +29,10 @@ const EditableQueueItem: React.FC<EditableQueueItemProps> = ({ msg, onEdit }) =>
       inputRef.current.select();
     }
   }, [isEditing]);
+
+  useEffect(() => {
+    onEditingChange?.(isEditing);
+  }, [isEditing, onEditingChange]);
 
   const handleClick = () => {
     setIsEditing(true);
@@ -81,11 +87,23 @@ export const QueueSection: React.FC<QueueSectionProps> = ({
   onDismiss,
   onDismissSteering,
   onEditQueued,
+  onInteractionChange,
 }) => {
+  const [isHovering, setIsHovering] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    onInteractionChange?.(isHovering || isEditing);
+  }, [isHovering, isEditing, onInteractionChange]);
+
   if (queuedMessages.length === 0 && steeringQueue.length === 0) return null;
 
   return (
-    <div className="queue-section">
+    <div 
+      className="queue-section"
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
+    >
       {/* Steering items (prioritized) */}
       {steeringQueue.length > 0 && (
         <>
@@ -134,7 +152,7 @@ export const QueueSection: React.FC<QueueSectionProps> = ({
           
           {queuedMessages.map((msg) => (
             <div key={msg.id} className="queued-item">
-              <EditableQueueItem msg={msg} onEdit={onEditQueued}>
+              <EditableQueueItem msg={msg} onEdit={onEditQueued} onEditingChange={setIsEditing}>
                 {msg.text}
               </EditableQueueItem>
               <div className="queued-item-actions">
