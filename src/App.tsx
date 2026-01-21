@@ -14,7 +14,6 @@ function App() {
   const [queuedMessages, setQueuedMessages] = useState<QueuedMessage[]>([]);
   const [steeringQueue, setSteeringQueue] = useState<QueuedMessage[]>([]);
   const [pendingSteerMessage, setPendingSteerMessage] = useState<string | null>(null);
-  const [steeringInProgress, setSteeringInProgress] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isQueueInteracting, setIsQueueInteracting] = useState(false);
@@ -48,31 +47,6 @@ function App() {
     currentResponseRef.current.forEach(clearTimeout);
     currentResponseRef.current = [];
   };
-
-  // Stop current AI response and finalize the last message (remove thinking)
-  const stopCurrentResponse = useCallback(() => {
-    clearCurrentResponse();
-    // Update the current streaming message to stop thinking and remove the spinner
-    setMessages((prev) => {
-      const updated = [...prev];
-      // Find the last assistant message that's still thinking
-      for (let i = updated.length - 1; i >= 0; i--) {
-        if (updated[i].role === 'assistant' && updated[i].content.thinking) {
-          updated[i] = {
-            ...updated[i],
-            content: {
-              ...updated[i].content,
-              thinking: false,
-            },
-            isStreaming: false,
-          };
-          break;
-        }
-      }
-      return updated;
-    });
-    setIsLoading(false);
-  }, []);
 
   const simulateAIResponse = useCallback((userMessageText: string) => {
     setIsLoading(true);
@@ -145,6 +119,32 @@ function App() {
     return userMessage;
   }, []);
 
+  // Insert user message BEFORE the current thinking AI message (for steering)
+  const insertSteeringMessage = useCallback((text: string) => {
+    const userMessage: MessageType = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: { text },
+    };
+    setMessages((prev) => {
+      // Find the last assistant message that's still thinking/streaming
+      const thinkingIndex = prev.findIndex(
+        (m) => m.role === 'assistant' && (m.content.thinking || m.isStreaming)
+      );
+      if (thinkingIndex !== -1) {
+        // Insert before the thinking message
+        return [
+          ...prev.slice(0, thinkingIndex),
+          userMessage,
+          ...prev.slice(thinkingIndex),
+        ];
+      }
+      // No thinking message, add at end
+      return [...prev, userMessage];
+    });
+    return userMessage;
+  }, []);
+
   const sendQueuedMessage = useCallback((id: string, queue: QueuedMessage[]) => {
     const msg = queue.find((m) => m.id === id);
     if (!msg) return;
@@ -171,8 +171,7 @@ function App() {
 
   // Auto-send pending steer message or top queued message when AI completes
   useEffect(() => {
-    // Don't auto-send while steering is in progress (react interrupt has its own timer)
-    if (!isLoading && !steeringInProgress) {
+    if (!isLoading) {
       // Priority: pending steer message first
       if (pendingSteerMessage) {
         const text = pendingSteerMessage;
@@ -197,7 +196,7 @@ function App() {
         return () => clearTimeout(timer);
       }
     }
-  }, [isLoading, steeringInProgress, pendingSteerMessage, steeringQueue, queuedMessages, sendSteeringMessage, sendQueuedMessage, simulateAIResponse]);
+  }, [isLoading, pendingSteerMessage, steeringQueue, queuedMessages, sendSteeringMessage, sendQueuedMessage, simulateAIResponse]);
 
   const handleSend = useCallback(() => {
     const text = inputValue.trim();
@@ -223,37 +222,19 @@ function App() {
   const handleDoubleEnter = useCallback((text: string) => {
     if (!text) return;
 
-    const isSteerMessage = text.toLowerCase().includes('react');
-
-    // Double enter sends immediately, bypassing queue
-    // This "steers" the conversation - message appears immediately in chat
-    addUserMessage(text);
     setInputValue('');
 
-    // If it's a steer message (contains "react"), stop thinking immediately, wait 5 seconds, then respond
-    if (isSteerMessage && isLoading) {
-      // Set flag to prevent auto-send from firing when isLoading becomes false
-      setSteeringInProgress(true);
-      // Stop the thinking animation immediately
-      stopCurrentResponse();
-      // Wait 5 seconds, then start the react response
-      setTimeout(() => {
-        setSteeringInProgress(false);
-        simulateAIResponse(text);
-      }, 5000);
-      return;
-    }
-
-    // If AI is still loading, store as pending steer (not in visible queue)
-    // The current thinking continues, then this message gets processed
-    if (!isLoading) {
-      simulateAIResponse(text);
-    } else {
-      // Store as pending steer - will be processed when AI finishes
-      // This does NOT appear in the queue UI
+    // Double enter sends immediately, bypassing queue
+    if (isLoading) {
+      // Insert message BEFORE the current thinking, then wait for it to finish
+      insertSteeringMessage(text);
       setPendingSteerMessage(text);
+    } else {
+      // Not loading, add normally and send immediately
+      addUserMessage(text);
+      simulateAIResponse(text);
     }
-  }, [isLoading, addUserMessage, simulateAIResponse, stopCurrentResponse]);
+  }, [isLoading, addUserMessage, insertSteeringMessage, simulateAIResponse]);
 
   const handleDismissQueued = useCallback((id: string) => {
     setQueuedMessages((prev) => prev.filter((m) => m.id !== id));
@@ -273,17 +254,16 @@ function App() {
     // Remove from regular queue
     setQueuedMessages((prev) => prev.filter((m) => m.id !== id));
     
-    // Add to feed as user message
-    addUserMessage(msg.text);
-    
     if (isLoading) {
-      // Wait for current response to finish, then respond with steering
+      // Insert message BEFORE the current thinking, then wait for it to finish
+      insertSteeringMessage(msg.text);
       setPendingSteerMessage(msg.text);
     } else {
-      // Not loading, send immediately
+      // Not loading, add normally and send immediately
+      addUserMessage(msg.text);
       simulateAIResponse(msg.text);
     }
-  }, [queuedMessages, addUserMessage, isLoading, simulateAIResponse]);
+  }, [queuedMessages, addUserMessage, insertSteeringMessage, isLoading, simulateAIResponse]);
 
   const handleDismissSteering = useCallback((id: string) => {
     setSteeringQueue((prev) => prev.filter((m) => m.id !== id));
@@ -298,16 +278,16 @@ function App() {
     const topMsg = queuedMessages[0];
     // Remove from queue
     setQueuedMessages((prev) => prev.filter((m) => m.id !== topMsg.id));
-    // Add to feed
-    addUserMessage(topMsg.text);
     
     if (isLoading) {
-      // Wait for current response to finish, then respond
+      // Insert message BEFORE the current thinking, then wait for it to finish
+      insertSteeringMessage(topMsg.text);
       setPendingSteerMessage(topMsg.text);
     } else {
+      addUserMessage(topMsg.text);
       simulateAIResponse(topMsg.text);
     }
-  }, [queuedMessages, addUserMessage, isLoading, simulateAIResponse]);
+  }, [queuedMessages, addUserMessage, insertSteeringMessage, isLoading, simulateAIResponse]);
 
   // Global keyboard listener for Enter when input is not focused
   useEffect(() => {
