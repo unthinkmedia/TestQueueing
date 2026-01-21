@@ -305,6 +305,12 @@ body {
   display: flex;
   align-items: center;
   gap: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.queued-item:hover .queued-item-actions {
+  opacity: 1;
 }
 
 .queued-item-send,
