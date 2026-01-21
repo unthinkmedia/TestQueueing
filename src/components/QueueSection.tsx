@@ -49,6 +49,7 @@ const EditableQueueItem: React.FC<EditableQueueItemProps> = ({ msg, onEdit, onEd
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
+      e.stopPropagation();
       setIsEditing(false);
       if (editText.trim() && editText !== msg.text) {
         onEdit(msg.id, editText.trim());
