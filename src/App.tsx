@@ -155,6 +155,8 @@ function App() {
         const text = pendingSteerMessage;
         setPendingSteerMessage(null);
         const timer = setTimeout(() => {
+          // Add user message first, then start AI response
+          addUserMessage(text);
           simulateAIResponse(text);
         }, 500);
         return () => clearTimeout(timer);
@@ -174,7 +176,7 @@ function App() {
         return () => clearTimeout(timer);
       }
     }
-  }, [isLoading, messages, pendingSteerMessage, steeringQueue, queuedMessages, sendSteeringMessage, sendQueuedMessage, simulateAIResponse]);
+  }, [isLoading, messages, pendingSteerMessage, steeringQueue, queuedMessages, sendSteeringMessage, sendQueuedMessage, addUserMessage, simulateAIResponse]);
 
   const handleSend = useCallback(() => {
     const text = inputValue.trim();
@@ -203,13 +205,12 @@ function App() {
     setInputValue('');
 
     // Double enter sends immediately, bypassing queue
-    // Add message below current thinking
-    addUserMessage(text);
-    
     if (isLoading) {
-      // Wait for current response to finish, then respond
+      // Store for later - will be shown after current response finishes
       setPendingSteerMessage(text);
     } else {
+      // Not loading - add message and respond immediately
+      addUserMessage(text);
       simulateAIResponse(text);
     }
   }, [isLoading, addUserMessage, simulateAIResponse]);
@@ -232,13 +233,12 @@ function App() {
     // Remove from regular queue
     setQueuedMessages((prev) => prev.filter((m) => m.id !== id));
     
-    // Add message below current thinking
-    addUserMessage(msg.text);
-    
     if (isLoading) {
-      // Wait for current response to finish, then respond
+      // Store for later - will be shown after current response finishes
       setPendingSteerMessage(msg.text);
     } else {
+      // Not loading - add message and respond immediately
+      addUserMessage(msg.text);
       simulateAIResponse(msg.text);
     }
   }, [queuedMessages, addUserMessage, isLoading, simulateAIResponse]);
@@ -257,13 +257,12 @@ function App() {
     // Remove from queue
     setQueuedMessages((prev) => prev.filter((m) => m.id !== topMsg.id));
     
-    // Add message below current thinking
-    addUserMessage(topMsg.text);
-    
     if (isLoading) {
-      // Wait for current response to finish, then respond
+      // Store for later - will be shown after current response finishes
       setPendingSteerMessage(topMsg.text);
     } else {
+      // Not loading - add message and respond immediately
+      addUserMessage(topMsg.text);
       simulateAIResponse(topMsg.text);
     }
   }, [queuedMessages, addUserMessage, isLoading, simulateAIResponse]);
