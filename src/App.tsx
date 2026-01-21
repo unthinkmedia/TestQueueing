@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import type { Message as MessageType, QueuedMessage } from './types';
 import { getResponseForMessage } from './mockResponses';
 import { ChatHeader } from './components/ChatHeader';

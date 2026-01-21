@@ -13,10 +13,10 @@ interface QueueSectionProps {
 interface EditableQueueItemProps {
   msg: QueuedMessage;
   onEdit: (id: string, newText: string) => void;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }
 
-const EditableQueueItem: React.FC<EditableQueueItemProps> = ({ msg, onEdit, children }) => {
+const EditableQueueItem: React.FC<EditableQueueItemProps> = ({ msg, onEdit }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editText, setEditText] = useState(msg.text);
   const inputRef = useRef<HTMLInputElement>(null);
