@@ -119,36 +119,6 @@ function App() {
     return userMessage;
   }, []);
 
-  // Insert user message BEFORE the current thinking AI message (for steering)
-  const insertSteeringMessage = useCallback((text: string) => {
-    const userMessage: MessageType = {
-      id: `user-${Date.now()}`,
-      role: 'user',
-      content: { text },
-    };
-    setMessages((prev) => {
-      // Find the LAST assistant message that's still thinking/streaming
-      let thinkingIndex = -1;
-      for (let i = prev.length - 1; i >= 0; i--) {
-        if (prev[i].role === 'assistant' && (prev[i].content.thinking || prev[i].isStreaming)) {
-          thinkingIndex = i;
-          break;
-        }
-      }
-      if (thinkingIndex !== -1) {
-        // Insert before the thinking message
-        return [
-          ...prev.slice(0, thinkingIndex),
-          userMessage,
-          ...prev.slice(thinkingIndex),
-        ];
-      }
-      // No thinking message, add at end
-      return [...prev, userMessage];
-    });
-    return userMessage;
-  }, []);
-
   const sendQueuedMessage = useCallback((id: string, queue: QueuedMessage[]) => {
     const msg = queue.find((m) => m.id === id);
     if (!msg) return;
@@ -233,16 +203,16 @@ function App() {
     setInputValue('');
 
     // Double enter sends immediately, bypassing queue
+    // Add message below current thinking
+    addUserMessage(text);
+    
     if (isLoading) {
-      // Insert message BEFORE the current thinking, then wait for it to finish
-      insertSteeringMessage(text);
+      // Wait for current response to finish, then respond
       setPendingSteerMessage(text);
     } else {
-      // Not loading, add normally and send immediately
-      addUserMessage(text);
       simulateAIResponse(text);
     }
-  }, [isLoading, addUserMessage, insertSteeringMessage, simulateAIResponse]);
+  }, [isLoading, addUserMessage, simulateAIResponse]);
 
   const handleDismissQueued = useCallback((id: string) => {
     setQueuedMessages((prev) => prev.filter((m) => m.id !== id));
@@ -262,16 +232,16 @@ function App() {
     // Remove from regular queue
     setQueuedMessages((prev) => prev.filter((m) => m.id !== id));
     
+    // Add message below current thinking
+    addUserMessage(msg.text);
+    
     if (isLoading) {
-      // Insert message BEFORE the current thinking, then wait for it to finish
-      insertSteeringMessage(msg.text);
+      // Wait for current response to finish, then respond
       setPendingSteerMessage(msg.text);
     } else {
-      // Not loading, add normally and send immediately
-      addUserMessage(msg.text);
       simulateAIResponse(msg.text);
     }
-  }, [queuedMessages, addUserMessage, insertSteeringMessage, isLoading, simulateAIResponse]);
+  }, [queuedMessages, addUserMessage, isLoading, simulateAIResponse]);
 
   const handleDismissSteering = useCallback((id: string) => {
     setSteeringQueue((prev) => prev.filter((m) => m.id !== id));
@@ -287,15 +257,16 @@ function App() {
     // Remove from queue
     setQueuedMessages((prev) => prev.filter((m) => m.id !== topMsg.id));
     
+    // Add message below current thinking
+    addUserMessage(topMsg.text);
+    
     if (isLoading) {
-      // Insert message BEFORE the current thinking, then wait for it to finish
-      insertSteeringMessage(topMsg.text);
+      // Wait for current response to finish, then respond
       setPendingSteerMessage(topMsg.text);
     } else {
-      addUserMessage(topMsg.text);
       simulateAIResponse(topMsg.text);
     }
-  }, [queuedMessages, addUserMessage, insertSteeringMessage, isLoading, simulateAIResponse]);
+  }, [queuedMessages, addUserMessage, isLoading, simulateAIResponse]);
 
   // Global keyboard listener for Enter when input is not focused
   useEffect(() => {
