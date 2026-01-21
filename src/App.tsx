@@ -336,6 +336,7 @@ function App() {
           onDismissSteering={handleDismissSteering}
           onEditQueued={handleEditQueued}
           onInteractionChange={setIsQueueInteracting}
+          hasInputText={inputValue.trim().length > 0}
         />
         
         <div ref={messagesEndRef} />

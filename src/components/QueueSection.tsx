@@ -9,6 +9,7 @@ interface QueueSectionProps {
   onDismissSteering: (id: string) => void;
   onEditQueued: (id: string, newText: string) => void;
   onInteractionChange?: (isInteracting: boolean) => void;
+  hasInputText?: boolean;
 }
 
 interface EditableQueueItemProps {
@@ -89,6 +90,7 @@ export const QueueSection: React.FC<QueueSectionProps> = ({
   onDismissSteering,
   onEditQueued,
   onInteractionChange,
+  hasInputText,
 }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -148,7 +150,7 @@ export const QueueSection: React.FC<QueueSectionProps> = ({
               </svg>
             </span>
             <span className="queue-title">{queuedMessages.length} Queued Request{queuedMessages.length > 1 ? 's' : ''}</span>
-            <span className="queue-hint">Send now: <kbd>Enter</kbd> ↵</span>
+            {!hasInputText && <span className="queue-hint">Send now: <kbd>Enter</kbd> ↵</span>}
           </div>
           
           {queuedMessages.map((msg) => (
