@@ -127,10 +127,14 @@ function App() {
       content: { text },
     };
     setMessages((prev) => {
-      // Find the last assistant message that's still thinking/streaming
-      const thinkingIndex = prev.findIndex(
-        (m) => m.role === 'assistant' && (m.content.thinking || m.isStreaming)
-      );
+      // Find the LAST assistant message that's still thinking/streaming
+      let thinkingIndex = -1;
+      for (let i = prev.length - 1; i >= 0; i--) {
+        if (prev[i].role === 'assistant' && (prev[i].content.thinking || prev[i].isStreaming)) {
+          thinkingIndex = i;
+          break;
+        }
+      }
       if (thinkingIndex !== -1) {
         // Insert before the thinking message
         return [
@@ -172,6 +176,10 @@ function App() {
   // Auto-send pending steer message or top queued message when AI completes
   useEffect(() => {
     if (!isLoading) {
+      // Check if there's still a thinking message visible (shouldn't be, but safety check)
+      const hasThinking = messages.some(m => m.role === 'assistant' && m.content.thinking);
+      if (hasThinking) return;
+      
       // Priority: pending steer message first
       if (pendingSteerMessage) {
         const text = pendingSteerMessage;
@@ -196,7 +204,7 @@ function App() {
         return () => clearTimeout(timer);
       }
     }
-  }, [isLoading, pendingSteerMessage, steeringQueue, queuedMessages, sendSteeringMessage, sendQueuedMessage, simulateAIResponse]);
+  }, [isLoading, messages, pendingSteerMessage, steeringQueue, queuedMessages, sendSteeringMessage, sendQueuedMessage, simulateAIResponse]);
 
   const handleSend = useCallback(() => {
     const text = inputValue.trim();
