@@ -266,7 +266,7 @@ function App() {
   }, []);
 
   const handleSendQueuedNow = useCallback((id: string) => {
-    // Move from regular queue to steering - interrupts current thinking
+    // Move from regular queue to steering - waits for current thinking to finish
     const msg = queuedMessages.find((m) => m.id === id);
     if (!msg) return;
     
@@ -277,19 +277,13 @@ function App() {
     addUserMessage(msg.text);
     
     if (isLoading) {
-      // Interrupt current thinking - set flag to prevent auto-send
-      setSteeringInProgress(true);
-      stopCurrentResponse();
-      // Wait 5 seconds, then respond to the steering message
-      setTimeout(() => {
-        setSteeringInProgress(false);
-        simulateAIResponse(msg.text);
-      }, 5000);
+      // Wait for current response to finish, then respond with steering
+      setPendingSteerMessage(msg.text);
     } else {
       // Not loading, send immediately
       simulateAIResponse(msg.text);
     }
-  }, [queuedMessages, addUserMessage, isLoading, stopCurrentResponse, simulateAIResponse]);
+  }, [queuedMessages, addUserMessage, isLoading, simulateAIResponse]);
 
   const handleDismissSteering = useCallback((id: string) => {
     setSteeringQueue((prev) => prev.filter((m) => m.id !== id));
@@ -297,7 +291,7 @@ function App() {
 
   const lastGlobalEnterTime = useRef<number>(0);
 
-  // Pop and send top queued item as an interrupt (like react steering)
+  // Pop and send top queued item - waits for current thinking to finish
   const popAndSendTopQueued = useCallback(() => {
     if (queuedMessages.length === 0) return;
     
@@ -308,19 +302,12 @@ function App() {
     addUserMessage(topMsg.text);
     
     if (isLoading) {
-      // Set flag to prevent auto-send from firing
-      setSteeringInProgress(true);
-      // Stop current thinking immediately
-      stopCurrentResponse();
-      // Wait 5 seconds, then respond
-      setTimeout(() => {
-        setSteeringInProgress(false);
-        simulateAIResponse(topMsg.text);
-      }, 5000);
+      // Wait for current response to finish, then respond
+      setPendingSteerMessage(topMsg.text);
     } else {
       simulateAIResponse(topMsg.text);
     }
-  }, [queuedMessages, addUserMessage, isLoading, stopCurrentResponse, simulateAIResponse]);
+  }, [queuedMessages, addUserMessage, isLoading, simulateAIResponse]);
 
   // Global keyboard listener for Enter when input is not focused
   useEffect(() => {
