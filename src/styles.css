@@ -237,10 +237,6 @@ body {
   border-top: 1px dashed var(--border-color);
   padding: 12px 0;
   margin-top: 8px;
-  position: sticky;
-  bottom: 0;
-  background: var(--bg-secondary);
-  z-index: 10;
 }
 
 .queue-header {
